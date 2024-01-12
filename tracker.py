@@ -74,6 +74,9 @@ dest = ""
 valid_dates = []
 first = True
 
+max_retries = 5  
+retry_delay = 10  
+
 with open(routes_path,'r') as file: 
         for line in file:
             valid_dates.append([])
@@ -81,8 +84,9 @@ with open(routes_path,'r') as file:
 while True:
     count = 0
     days_data = []
-    with open(routes_path,'r') as file: 
-        for line in file:       
+    
+    with open(routes_path, 'r') as file:
+        for line in file:
             route = line.split()
             print(route)
             origin = route[0]
@@ -101,14 +105,31 @@ while True:
                 json.dumps(json_data)
 
                 url = "https://www.aa.com/booking/api/search/calendar"
-                response = requests.post(url, json=json_data)
 
-                if response.status_code == 200:
-                    print("Request successful.")
-                    response_JSON = response.json()
-                else:
-                    print(f"Request failed with status code: {response.status_code}")
-                    break
+                retries = 0
+                while retries < max_retries:
+                    try:
+                        response = requests.post(url, json=json_data)
+
+                        if response.status_code == 200:
+                            print("Request successful.")
+                            response_JSON = response.json()
+                            # Process response_JSON as needed
+                            break  # Exit the retry loop on success
+                        else:
+                            print(f"Request failed with status code: {response.status_code}")
+                            break  # Exit the retry loop if a non-retryable error
+
+                    except requests.exceptions.ConnectionError:
+                        print("Failed to connect to the server. Retrying...")
+                    except Exception as e:
+                        print(f"An error occurred: {e}. Retrying...")
+
+                    time.sleep(retry_delay)
+                    retries += 1
+
+                if retries >= max_retries:
+                    print("Maximum retries reached. Moving to the next task.")
 
                 calendar_months = response_JSON.get('calendarMonths', [])
 
